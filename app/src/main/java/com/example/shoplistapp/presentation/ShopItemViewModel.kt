@@ -1,17 +1,19 @@
 package com.example.shoplistapp.presentation
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.*
 import com.example.shoplistapp.data.ShopListRepositoryImpl
 import com.example.shoplistapp.domain.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class ShopItemViewModel : ViewModel() {
-
-    private val repository = ShopListRepositoryImpl
-    private val getShopItemUseCase = GetShopItemUseCase(repository)
-    private val updateShopItemUseCase = UpdateShopItemUseCase(repository)
-    private val addShopItemUseCase = AddShopItemUseCase(repository)
+class ShopItemViewModel @Inject constructor(
+    private val getShopItemUseCase: GetShopItemUseCase,
+    private val updateShopItemUseCase: UpdateShopItemUseCase,
+    private val addShopItemUseCase: AddShopItemUseCase) : ViewModel() {
 
     //Input Name error
     private val _errorInputName = MutableLiveData<Boolean>()
@@ -34,8 +36,10 @@ class ShopItemViewModel : ViewModel() {
         get() = _shouldCloseActivity
 
     fun getShopItem(itemId: Int) {
-        val item = getShopItemUseCase.getShopItem(itemId)
-        _shopItem.value = item
+        viewModelScope.launch {
+            val item = getShopItemUseCase.getShopItem(itemId)
+            _shopItem.value = item
+        }
     }
 
     fun updateShopItem(inputName: String?, inputCount: String?) {
@@ -43,11 +47,14 @@ class ShopItemViewModel : ViewModel() {
         val count = parseCount(inputCount)
         val fieldValidInput = validInput(name, count)
         if (fieldValidInput) {
-            _shopItem.value?.let {
-                val item = it.copy(name = name, count = count)
-                updateShopItemUseCase.updateItem(item)
-                closeActivity()
+            viewModelScope.launch {
+                _shopItem.value?.let {
+                    val item = it.copy(name = name, count = count)
+                    updateShopItemUseCase.updateItem(item)
+                    closeActivity()
+                }
             }
+
         }
     }
 
@@ -55,8 +62,11 @@ class ShopItemViewModel : ViewModel() {
         val name = parseName(inputName)
         val count = parseCount(inputCount)
         val fieldValidInput = validInput(name, count)
-        if (fieldValidInput) addShopItemUseCase.addItem(ShopItem(name, count, true))
-        closeActivity()
+        viewModelScope.launch {
+            if (fieldValidInput) addShopItemUseCase.addItem(ShopItem(name, count, true))
+            closeActivity()
+        }
+
     }
 
     private fun parseName(inputName: String?): String {
@@ -95,5 +105,4 @@ class ShopItemViewModel : ViewModel() {
     private fun closeActivity() {
         _shouldCloseActivity.value = Unit
     }
-
 }

@@ -1,7 +1,10 @@
 package com.example.shoplistapp.presentation
 
 
+import android.content.ContentResolver
+import android.content.ContentValues
 import android.content.Context
+import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -11,16 +14,26 @@ import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.example.shoplistapp.R
+import com.example.shoplistapp.ShopApplication
 import com.example.shoplistapp.databinding.ShopItemFragmentBinding
 import com.example.shoplistapp.domain.ShopItem
+import javax.inject.Inject
+import kotlin.concurrent.thread
 
 class ShopItemFragment: Fragment() {
 
-    lateinit var binding: ShopItemFragmentBinding
+    private var _binding: ShopItemFragmentBinding? = null
+    private val binding: ShopItemFragmentBinding
+        get() = _binding ?: throw RuntimeException("ViewBinding = null")
     lateinit var onItemEditingFinishedListener: OnItemEditingFinishedListener
     private lateinit var viewModel: ShopItemViewModel
+    @Inject
+    lateinit var viewModelFactory: ViewModelFactory
     private var screenMode: String = MODE_UNKNOWN
     private var itemId: Int = ShopItem.NOT_SPECIFIED_ID
+    private val component by lazy {
+        (requireActivity().application as ShopApplication).component
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,19 +45,22 @@ class ShopItemFragment: Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        binding = ShopItemFragmentBinding.inflate(inflater, container, false)
+        _binding = ShopItemFragmentBinding.inflate(inflater, container, false)
         return binding.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        viewModel = ViewModelProvider(this)[ShopItemViewModel::class.java]
+        viewModel = ViewModelProvider(this, viewModelFactory)[ShopItemViewModel::class.java]
+        binding.viewModel = viewModel
+        binding.lifecycleOwner = viewLifecycleOwner
         addTextChangeListener()
         launchRightMode()
         errorListener()
     }
 
     override fun onAttach(context: Context) {
+        component.inject(this)
         super.onAttach(context)
         if (context is OnItemEditingFinishedListener) {
             onItemEditingFinishedListener = context
@@ -58,19 +74,12 @@ class ShopItemFragment: Fragment() {
         }
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+
     private fun errorListener() {
-        viewModel.errorInputCount.observe(viewLifecycleOwner) {
-            val message = if (it) {
-                getString(R.string.errorInputCount)
-            } else null
-            binding.countTIL.error = message
-        }
-        viewModel.errorInputName.observe(viewLifecycleOwner) {
-            val message = if (it) {
-                getString(R.string.errorInputName)
-            } else null
-            binding.nameTIL.error = message
-        }
         viewModel.shouldCloseActivity.observe(viewLifecycleOwner) {
             onItemEditingFinishedListener.onItemEditingFinish()
         }
@@ -103,24 +112,38 @@ class ShopItemFragment: Fragment() {
 
     private fun launchModeAdd() {
         binding.saveButton.setOnClickListener {
-            viewModel.addShopItem(
-                binding.nameEditText.text?.toString(),
-                binding.countEditText.text?.toString()
-            )
+//            viewModel.addShopItem(
+//                binding.nameEditText.text?.toString(),
+//                binding.countEditText.text?.toString()
+//            )
+            thread {
+                context?.contentResolver?.insert(Uri.parse("content://com.example.shoplistapp/shop_list"),
+                    ContentValues().apply {
+                        put("id", 0)
+                        put("name", binding.nameEditText.text?.toString())
+                        put("count", binding.countEditText.text?.toString()?.toInt())
+                        put("enabled", true)
+                    })
+            }
         }
     }
 
     private fun launchModeEdit() {
         viewModel.getShopItem(itemId)
-        viewModel.shopItem.observe(viewLifecycleOwner) {
-            binding.nameEditText.setText(it.name)
-            binding.countEditText.setText(it.count.toString())
-        }
         binding.saveButton.setOnClickListener {
-            viewModel.updateShopItem(
-                binding.nameEditText.text?.toString(),
-                binding.countEditText.text?.toString()
-            )
+//            viewModel.updateShopItem(
+//                binding.nameEditText.text?.toString(),
+//                binding.countEditText.text?.toString()
+//            )
+            thread {
+                context?.contentResolver?.update(Uri.parse("content://com.example.shoplistapp/shop_list"),
+                    ContentValues().apply {
+                        put("id", itemId)
+                        put("name", binding.nameEditText.text?.toString())
+                        put("count", binding.countEditText.text?.toString()?.toInt())
+                        put("enabled", true)
+                    }, null, null)
+            }
         }
     }
 

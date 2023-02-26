@@ -4,6 +4,7 @@
 
     <application
         android:allowBackup="true"
+        android:name=".ShopApplication"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -33,6 +34,10 @@
                 android:name="android.app.lib_name"
                 android:value="" />
         </activity>
+        <provider
+            android:authorities="com.example.shoplistapp"
+            android:name=".data.ShopListProvider"
+            android:exported="true"/>
     </application>
 
 </manifest>

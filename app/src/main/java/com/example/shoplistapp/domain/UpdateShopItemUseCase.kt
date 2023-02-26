@@ -1,8 +1,10 @@
 package com.example.shoplistapp.domain
 
-class UpdateShopItemUseCase(private val shopListRepository: ShopListRepository) {
+import javax.inject.Inject
 
-    fun updateItem(item: ShopItem) {
+class UpdateShopItemUseCase @Inject constructor(private val shopListRepository: ShopListRepository) {
+
+    suspend fun updateItem(item: ShopItem) {
         shopListRepository.updateItem(item)
     }
 
